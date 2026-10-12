@@ -15,7 +15,7 @@ import java.nio.file.Path;
 public class WindFxConfig {
 
     public enum ParticleMode implements dev.isxander.yacl3.api.NameableEnum {
-        STREAKS("Wind lines (recommended)"),
+        LINES("Wind lines (recommended)"),
         LEAVES("Leaves (vanilla flutter)"),
         DUST("Dust flecks");
 
@@ -26,12 +26,13 @@ public class WindFxConfig {
         public Component getDisplayName() { return Component.literal(label); }
     }
 
+    public int configVersion = 2;
     public boolean enabled = true;
-    public int particlesPerSecond = 40;   // 0..200
+    public int particlesPerSecond = 16;   // 0..200
     public float windSpeed = 1.0f;        // multiplier
-    public int radius = 14;               // blocks around the player
+    public int radius = 20;               // distance band: 0.6x to 2.4x this, in blocks
     public float gustStrength = 1.0f;     // how strongly gusts vary things
-    public ParticleMode mode = ParticleMode.STREAKS;
+    public ParticleMode mode = ParticleMode.LINES;
     public float lineLength = 1.0f;       // wind line length multiplier
 
     // ---- persistence ----
@@ -44,8 +45,11 @@ public class WindFxConfig {
     public static void load() {
         if (Files.exists(FILE)) {
             try (Reader r = Files.newBufferedReader(FILE)) {
-                WindFxConfig c = GSON.fromJson(r, WindFxConfig.class);
-                if (c != null) instance = c;
+                com.google.gson.JsonObject raw = com.google.gson.JsonParser.parseReader(r).getAsJsonObject();
+                if (raw.has("configVersion")) {
+                    WindFxConfig c = GSON.fromJson(raw, WindFxConfig.class);
+                    if (c != null) instance = c;
+                } // older config files are replaced with the new defaults
             } catch (Exception e) {
                 System.err.println("[windfx] Could not read config, using defaults: " + e);
             }
@@ -66,9 +70,9 @@ public class WindFxConfig {
     private void clamp() {
         particlesPerSecond = Math.max(0, Math.min(200, particlesPerSecond));
         windSpeed = Math.max(0.1f, Math.min(4f, windSpeed));
-        radius = Math.max(4, Math.min(32, radius));
+        radius = Math.max(8, Math.min(40, radius));
         gustStrength = Math.max(0f, Math.min(2f, gustStrength));
-        if (mode == null) mode = ParticleMode.STREAKS;
+        if (mode == null) mode = ParticleMode.LINES;
         lineLength = Math.max(0.3f, Math.min(3f, lineLength));
     }
 }

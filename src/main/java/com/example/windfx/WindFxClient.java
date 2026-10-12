@@ -24,14 +24,14 @@ public class WindFxClient implements ClientModInitializer {
     private static final double DUST_VELOCITY_BOOST = 3.0; // dust decelerates quickly
     private static double spawnBudget = 0;
 
-    public static final SimpleParticleType WIND_STREAK = FabricParticleTypes.simple();
+    public static final SimpleParticleType WIND_LINE = FabricParticleTypes.simple();
 
     @Override
     public void onInitializeClient() {
         WindFxConfig.load();
         Registry.register(BuiltInRegistries.PARTICLE_TYPE,
-                Identifier.fromNamespaceAndPath("windfx", "wind_streak"), WIND_STREAK);
-        ParticleProviderRegistry.getInstance().register(WIND_STREAK, WindStreakParticle.Provider::new);
+                Identifier.fromNamespaceAndPath("windfx", "wind_line"), WIND_LINE);
+        ParticleProviderRegistry.getInstance().register(WIND_LINE, WindLineParticle.Provider::new);
         ClientTickEvents.END_CLIENT_TICK.register(WindFxClient::tick);
     }
 
@@ -55,7 +55,7 @@ public class WindFxClient implements ClientModInitializer {
         double speed = (0.06 + 0.14 * Math.min(1.0, gust)) * cfg.windSpeed;
         double mult = switch (cfg.mode) {
             case DUST -> DUST_VELOCITY_BOOST;
-            case STREAKS -> 1.8;
+            case LINES -> 1.0;
             default -> 1.0;
         };
         double dx = Math.cos(angle) * speed * mult;
@@ -69,17 +69,28 @@ public class WindFxClient implements ClientModInitializer {
 
         ParticleOptions type = switch (cfg.mode) {
             case DUST -> ParticleTypes.WHITE_ASH;
-            case STREAKS -> WIND_STREAK;
+            case LINES -> WIND_LINE;
             default -> ParticleTypes.CHERRY_LEAVES;
         };
 
         RandomSource rand = level.getRandom();
         int r = cfg.radius;
         for (int i = 0; i < count; i++) {
-            // spawn upwind so particles blow across the player's view
-            double x = player.getX() - Math.cos(angle) * r * 0.6 + (rand.nextDouble() * 2 - 1) * r;
-            double z = player.getZ() - Math.sin(angle) * r * 0.6 + (rand.nextDouble() * 2 - 1) * r;
-            double y = player.getY() + rand.nextDouble() * 5.0 - 1.0;
+            double x, y, z;
+            if (cfg.mode == WindFxConfig.ParticleMode.LINES) {
+                // distant, high-up swooshes all around you (the look of Windy / Breezy)
+                double dist = r * (0.6 + 1.8 * rand.nextDouble());
+                double a = rand.nextDouble() * Math.PI * 2;
+                x = player.getX() + Math.cos(a) * dist;
+                z = player.getZ() + Math.sin(a) * dist;
+                double h = rand.nextDouble();
+                y = player.getY() - 2.0 + 24.0 * h * h;
+            } else {
+                // spawn upwind so particles blow across the player's view
+                x = player.getX() - Math.cos(angle) * r * 0.6 + (rand.nextDouble() * 2 - 1) * r;
+                z = player.getZ() - Math.sin(angle) * r * 0.6 + (rand.nextDouble() * 2 - 1) * r;
+                y = player.getY() + rand.nextDouble() * 5.0 - 1.0;
+            }
 
             BlockPos pos = BlockPos.containing(x, y, z);
             if (!level.getBlockState(pos).isAir()) continue;
